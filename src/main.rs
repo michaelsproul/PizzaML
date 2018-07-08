@@ -37,17 +37,17 @@ enum Statement {
 struct Function {
     name: String,
     argument_list: Vec<(String, String)>,
-    body: Vec<Statement>,
+    body: Expr,
 }
 
 fn main() {
+    let keywords = ["if", "then", "else", "fn", "let"];
+
     let env = LanguageEnv::new(LanguageDef {
         ident: Identifier {
             start: letter(),
             rest: alpha_num().or(char('_')),
-            reserved: ["if", "then", "else", "let", "in", "type"].iter()
-                                                                 .map(|x| (*x).into())
-                                                                 .collect(),
+            reserved: keywords.iter().map(|x| (*x).into()).collect(),
         },
         op: Identifier {
             start: satisfy(|c| "+-*/".chars().any(|x| x == c)),
@@ -93,5 +93,34 @@ fn main() {
 
     let mut expr = parser(|inp| expr_fn(inp, &env));
 
-    println!("{:#?}", expr.parse("{{ hello_world + this_is_cool * wowza; x }; { x; y }}"));
+    // TODO: proper type parser
+    let func_arg = (
+        env.identifier(),
+        (spaces(), char(':'), spaces()),
+        env.identifier()
+    ).map(|(name, _, ty)| (name, ty));
+
+    let mut func = (
+        (env.reserved("fn"), spaces()),
+        env.identifier(),
+        between(char('('), char(')'), sep_by(func_arg, char(','))),
+        expr.clone()
+    ).map(|(_, name, argument_list, body)| {
+        Function {
+            name,
+            argument_list,
+            body
+        }
+    });
+
+    println!("Testing the expression parser:");
+    println!("{:#?}", expr.parse(State::new("{{ hello_world + this_is_cool * wowza; x }; { x; y }}")));
+
+    let example = "fn test_function(arg1: Type1,arg2: Type2){ arg1 + arg2 * arg2; arg2 }";
+
+    println!("Testing the function parser:");
+    match func.parse(State::new(example)) {
+        Ok(res) => println!("{:#?}", res),
+        Err(err) => println!("{}", err),
+    }
 }
