@@ -1,0 +1,8 @@
+[package]
+name = "pizza_ml"
+version = "0.1.0"
+authors = ["Michael Sproul <micsproul@gmail.com>"]
+
+[dependencies]
+combine = "2.0.0"
+combine-language = "2.0.0"
