@@ -63,7 +63,7 @@ fn main() {
     fn expr_fn<I>(input: I, lang_env: &LanguageEnv<I>) -> ParseResult<Expr, I>
         where I: Stream<Item=char>
     {
-        let lex_char = |c| char(c).skip(spaces());
+        let lex_char = |c| lang_env.lex(char(c));
 
         let expr_list = sep_by(parser(|inp| expr_fn::<I>(inp, lang_env)), lex_char(';'));
         let expr_block = between(lex_char('{'), lex_char('}'), expr_list).map(Expr::Block);
@@ -95,15 +95,14 @@ fn main() {
 
     // TODO: proper type parser
     let func_arg = (
-        env.identifier(),
-        (spaces(), char(':'), spaces()),
+        env.identifier().skip(env.lex(char(':'))),
         env.identifier()
-    ).map(|(name, _, ty)| (name, ty));
+    );
 
     let mut func = (
-        (env.reserved("fn"), spaces()),
+        env.lex(env.reserved("fn")),
         env.identifier(),
-        between(char('('), char(')'), sep_by(func_arg, char(','))),
+        between(env.lex(char('(')), env.lex(char(')')), sep_by(func_arg, env.lex(char(',')))),
         expr.clone()
     ).map(|(_, name, argument_list, body)| {
         Function {
@@ -116,7 +115,7 @@ fn main() {
     println!("Testing the expression parser:");
     println!("{:#?}", expr.parse(State::new("{{ hello_world + this_is_cool * wowza; x }; { x; y }}")));
 
-    let example = "fn test_function(arg1: Type1,arg2: Type2){ arg1 + arg2 * arg2; arg2 }";
+    let example = "fn test_function ( arg1 : Type1 , arg2: Type2 ) { arg1 + arg2 * arg2; arg2 }";
 
     println!("Testing the function parser:");
     match func.parse(State::new(example)) {
