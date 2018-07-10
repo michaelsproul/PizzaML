@@ -5,6 +5,7 @@ use combine::*;
 use combine_language::*;
 
 use combine::char::{alpha_num, letter, string, spaces, char};
+use combine::primitives::Error;
 
 use self::Expr::*;
 use self::Statement::*;
@@ -25,13 +26,12 @@ enum Expr {
     Block(Vec<Statement<Expr>>, Option<Box<Expr>>)
 }
 
-// Expression parser
 fn op(l: Expr, o: &'static str, r: Expr) -> Expr {
     Op(Box::new(l), o, Box::new(r))
 }
 
-fn id(s: &str) -> Expr {
-    Id(String::from(s))
+fn str_error<T, E>(s: &'static str) -> Error<T, E> {
+    Error::Message(s.into())
 }
 
 #[derive(PartialEq, Debug)]
@@ -88,11 +88,21 @@ fn main() {
 
         let statement = parser(|inp| statement_fn(inp, lang_env, expr_fn::<I>));
         let expr_list = (
-            // FIXME: statement parser is too greedy here and eats the last expr
-            // a different soln will be required
-            sep_end_by(statement, lex_char(';')),
-            optional(parser(|inp| expr_fn::<I>(inp, lang_env))),
-        );
+            sep_by(statement, lex_char(';')),
+            optional(lex_char(';')),
+        ).and_then(|(mut stmts, final_semicolon): (Vec<_>, _)| {
+            // Extract last expression like e3 in { e1; e2; e3 }
+            if final_semicolon.is_none() {
+                match stmts.pop() {
+                    Some(SExpr(terminal_expr)) => Ok((stmts, Some(terminal_expr))),
+                    Some(_) =>
+                        Err(str_error("Expression blocks can't be terminated with statements")),
+                    None => Ok((stmts, None))
+                }
+            } else {
+                Ok((stmts, None))
+            }
+        });
 
         let expr_block = between(lex_char('{'), lex_char('}'), expr_list)
             .map(|(stmts, opt_expr)| {
@@ -160,6 +170,22 @@ r##"fn test_function(x: Int, y: Int) {
         let z2 = z1 * z1;
         z2;
         z1 + z2
+    }
+"##;
+
+    println!("Testing the function parser:");
+    match func.parse(State::new(example)) {
+        Ok(res) => println!("{:#?}", res),
+        Err(err) => println!("{}", err),
+    }
+
+    // This should error because the terminal expression is a let
+    let example =
+r##"fn test_function(x: Int, y: Int) {
+        let z1 = x + y * x;
+        let z2 = z1 * z1;
+        z2;
+        let y = z1 + z2
     }
 "##;
 
