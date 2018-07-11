@@ -11,6 +11,12 @@ pub enum Statement<E> {
 pub enum Expr {
     Id(String),
     Op(Box<Expr>, &'static str, Box<Expr>),
+    // if <cond> then <e1> else <e2>
+    If(Box<Expr>, Box<Expr>, Box<Expr>),
+    FnCall {
+        function: String,
+        args: Vec<Expr>,
+    },
     Block(Vec<Statement<Expr>>, Option<Box<Expr>>)
 }
 

@@ -64,7 +64,9 @@ pub fn expr_fn<I>(input: I, lang_env: &LanguageEnv<I>) -> ParseResult<Expr, I>
     where I: Stream<Item=char>
 {
     let lex_char = |c| lang_env.lex(char(c));
+    let expr = parser(|inp| expr_fn(inp, lang_env));
 
+    // Expression blocks { e1; e2; e3 }
     let statement = parser(|inp| statement_fn(inp, lang_env, expr_fn::<I>));
     let expr_list = (
         sep_by(statement, lex_char(';')),
@@ -88,6 +90,7 @@ pub fn expr_fn<I>(input: I, lang_env: &LanguageEnv<I>) -> ParseResult<Expr, I>
             Expr::Block(stmts, opt_expr.map(Box::new))
         });
 
+    // Simple terms and operators: var_name, x + y * z, etc
     // FIXME: precedence for other operators
     let op_parser = string("+").or(string("*"))
         .map(|op| {
@@ -107,7 +110,21 @@ pub fn expr_fn<I>(input: I, lang_env: &LanguageEnv<I>) -> ParseResult<Expr, I>
 
     let prim_expr = expression_parser(term, op_parser, op);
 
+    // Function calls
+    let fn_call = (
+        lang_env.identifier(),
+        between(lex_char('('), lex_char(')'), sep_end_by(expr.clone(), lex_char(',')))
+    ).map(|(function, args)| {
+        FnCall {
+            function,
+            args,
+        }
+    });
+
     expr_block
+        // FIXME: `try` required to avoid confusing `ident` with `ident(args..)`
+        // Feels like a hack, could probably do something better.
+        .or(try(fn_call))
         .or(prim_expr)
         .parse_stream(input)
 }
