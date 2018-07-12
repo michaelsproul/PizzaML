@@ -1,16 +1,13 @@
+extern crate pizza_ml;
 extern crate combine;
 extern crate combine_language;
 
-mod ast;
-mod parser;
-
 use combine::{Parser, State};
-use parser::{expr_fn, function_fn};
+use pizza_ml::parser::{expr, function};
 
 fn main() {
-    let env = parser::language_env();
-    let mut expr = combine::parser(|inp| expr_fn(inp, &env));
-    let mut func = combine::parser(|inp| function_fn(inp, &env));
+    let mut expr = expr();
+    let mut func = function();
 
     println!("Testing the expression parser:");
     println!("{:#?}", expr.parse(State::new("{{ hello_world + this_is_cool * wowza; x }; { x; y }}")));

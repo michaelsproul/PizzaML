@@ -9,7 +9,7 @@ use ast::{Expr::*, Statement::*};
 const KEYWORDS: &[&str] = &["if", "then", "else", "fn", "let"];
 
 /// Language environment: provides lexing, comment support and easy expr parsing
-pub fn language_env<I: 'static>() -> LanguageEnv<'static, I>
+pub fn language_env<'a, I: 'a>() -> LanguageEnv<'a, I>
     where I: Stream<Item = char>
 {
     LanguageEnv::new(LanguageDef {
@@ -34,24 +34,27 @@ fn str_error<T, E>(s: &'static str) -> Error<T, E> {
     Error::Message(s.into())
 }
 
-/// Statement parser (parametrised by an expr parser)
+/// Statement parser
 pub fn statement_fn<I>(
     input: I,
     env: &LanguageEnv<I>,
-    expr_fn: impl Fn(I, &LanguageEnv<I>) -> ParseResult<Expr, I>
-) -> ParseResult<Statement<Expr>, I>
+) -> ParseResult<Statement, I>
 where
     I: Stream<Item=char>
 {
-    let expr = parser(|inp| expr_fn(inp, env));
     let let_parser = (
         env.reserved("let"),
         env.identifier(),
         env.reserved_op("="),
-        expr.clone()
+        expr()
     ).map(|(_, ident, _, expr)| Statement::SLet(ident, expr));
 
-    let_parser.or(expr.map(Statement::SExpr)).parse_stream(input)
+    let_parser.or(expr().map(Statement::SExpr)).parse_stream(input)
+}
+
+/// Statement parser
+pub fn statement<'a, I: Stream<Item=char> + 'a>() -> impl Parser<Input=I, Output=Statement> {
+    parser(|inp| statement_fn(inp, &language_env()))
 }
 
 /// Construct an expression from an LHS, an operator and an RHS
@@ -64,12 +67,10 @@ pub fn expr_fn<I>(input: I, lang_env: &LanguageEnv<I>) -> ParseResult<Expr, I>
     where I: Stream<Item=char>
 {
     let lex_char = |c| lang_env.lex(char(c));
-    let expr = parser(|inp| expr_fn(inp, lang_env));
 
     // Expression blocks { e1; e2; e3 }
-    let statement = parser(|inp| statement_fn(inp, lang_env, expr_fn::<I>));
     let expr_list = (
-        sep_by(statement, lex_char(';')),
+        sep_by(statement(), lex_char(';')),
         optional(lex_char(';')),
     ).and_then(|(mut stmts, final_semicolon): (Vec<_>, _)| {
         // Extract last expression like e3 in { e1; e2; e3 }
@@ -113,7 +114,7 @@ pub fn expr_fn<I>(input: I, lang_env: &LanguageEnv<I>) -> ParseResult<Expr, I>
     // Function calls
     let fn_call = (
         lang_env.identifier(),
-        between(lex_char('('), lex_char(')'), sep_end_by(expr.clone(), lex_char(',')))
+        between(lex_char('('), lex_char(')'), sep_end_by(expr(), lex_char(',')))
     ).map(|(function, args)| {
         FnCall {
             function,
@@ -127,6 +128,11 @@ pub fn expr_fn<I>(input: I, lang_env: &LanguageEnv<I>) -> ParseResult<Expr, I>
         .or(try(fn_call))
         .or(prim_expr)
         .parse_stream(input)
+}
+
+/// Expression parser
+pub fn expr<'a, I: Stream<Item=char> + 'a>() -> impl Parser<Input=I, Output=Expr> {
+    parser(|inp| expr_fn(inp, &language_env()))
 }
 
 // Function parser
@@ -155,4 +161,9 @@ pub fn function_fn<I>(input: I, env: &LanguageEnv<I>) -> ParseResult<Function, I
     });
 
     func.parse_stream(input)
+}
+
+/// Function parser
+pub fn function<'a, I: Stream<Item=char> + 'a>() -> impl Parser<Input=I, Output=Function> {
+    parser(|inp| function_fn(inp, &language_env()))
 }

@@ -1,9 +1,9 @@
 #[derive(PartialEq, Debug)]
-pub enum Statement<E> {
+pub enum Statement {
     // Let binding
-    SLet(String, E),
+    SLet(String, Expr),
     // Probably side-effectual expression <expr>;
-    SExpr(E),
+    SExpr(Expr),
     // TODO: Assignment?
 }
 
@@ -17,7 +17,7 @@ pub enum Expr {
         function: String,
         args: Vec<Expr>,
     },
-    Block(Vec<Statement<Expr>>, Option<Box<Expr>>)
+    Block(Vec<Statement>, Option<Box<Expr>>)
 }
 
 #[derive(PartialEq, Debug)]
