@@ -17,7 +17,9 @@ pub enum Expr {
         function: String,
         args: Vec<Expr>,
     },
-    Block(Vec<Statement>, Option<Box<Expr>>)
+    Block(Vec<Statement>, Option<Box<Expr>>),
+    // ()
+    Unit
 }
 
 #[derive(PartialEq, Debug)]

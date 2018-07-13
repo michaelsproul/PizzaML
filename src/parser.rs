@@ -69,22 +69,15 @@ pub fn expr_fn<I>(input: I, lang_env: &LanguageEnv<I>) -> ParseResult<Expr, I>
     let lex_char = |c| lang_env.lex(char(c));
 
     // Expression blocks { e1; e2; e3 }
-    let expr_list = (
-        sep_by(statement(), lex_char(';')),
-        optional(lex_char(';')),
-    ).and_then(|(mut stmts, final_semicolon): (Vec<_>, _)| {
-        // Extract last expression like e3 in { e1; e2; e3 }
-        if final_semicolon.is_none() {
+    let expr_list = sep_by(statement().or(string("").map(|_| SExpr(Unit))), lex_char(';'))
+        .and_then(|mut stmts: Vec<_>| {
             match stmts.pop() {
                 Some(SExpr(terminal_expr)) => Ok((stmts, Some(terminal_expr))),
                 Some(_) =>
                     Err(str_error("Expression blocks can't be terminated with statements")),
-                None => Ok((stmts, None))
+                None => unreachable!("Expression block parser should at least produce ()"),
             }
-        } else {
-            Ok((stmts, None))
-        }
-    });
+        });
 
     let expr_block = between(lex_char('{'), lex_char('}'), expr_list)
         .map(|(stmts, opt_expr)| {
