@@ -19,6 +19,8 @@ fn expr_fn_call() {
 #[test]
 fn expr_block_empty() {
     assert_eq!(expr().parse("{}").unwrap().0, Block(vec![], Some(Box::new(Unit))));
+    assert_eq!(expr().parse("{;}").unwrap().0, Block(vec![SExpr(Unit)], Some(Box::new(Unit))));
+    assert_eq!(expr().parse("{;;}").unwrap().0, Block(vec![SExpr(Unit), SExpr(Unit)], Some(Box::new(Unit))));
 }
 
 #[test]
