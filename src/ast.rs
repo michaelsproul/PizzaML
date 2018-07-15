@@ -19,7 +19,8 @@ pub enum Expr {
     },
     Block(Vec<Statement>, Option<Box<Expr>>),
     // ()
-    Unit
+    Unit,
+    StringLit(String),
 }
 
 #[derive(PartialEq, Debug)]

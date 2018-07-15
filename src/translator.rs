@@ -2,6 +2,14 @@ use std::io::{self, Write};
 use ast::*;
 use ast::{Expr::*, Statement::*};
 
+// Convert a PizzaML function name to an SML one.
+pub fn translate_function_call(func_name: &str) -> &str {
+    match func_name {
+        "print" => "TextIO.print",
+        s => s,
+    }
+}
+
 pub fn translate_expression<W: Write>(e: &Expr, o: &mut W) -> io::Result<()> {
     match *e {
         Id(ref ident) => write!(o, "{}", ident)?,
@@ -11,13 +19,15 @@ pub fn translate_expression<W: Write>(e: &Expr, o: &mut W) -> io::Result<()> {
             translate_expression(rhs, o)?;
         }
         FnCall { ref function, ref args } => {
-            write!(o, "{}", function)?;
+            write!(o, "{}", translate_function_call(function))?;
             for arg in args {
                 write!(o, " ")?;
                 translate_expression(arg, o)?;
             }
         }
         Unit => write!(o, "()")?,
+        // FIXME: HACK printing the debug representation of the string!
+        StringLit(ref s) => write!(o, "{:?}", s)?,
         Block(ref stmts, ref terminal) => {
             if !stmts.is_empty() {
                 write!(o, "let\n")?;
@@ -67,8 +77,12 @@ pub fn translate_statement<W: Write>(s: &Statement, o: &mut W) -> io::Result<()>
 // TODO: polymorphic types
 pub fn translate_function<W: Write>(f: &Function, o: &mut W) -> io::Result<()> {
     write!(o, "fun {} ", f.name)?;
-    for &(ref name, ref ty) in &f.argument_list {
-        write!(o, "({}: {}) ", name, ty)?;
+    if !f.argument_list.is_empty() {
+        for &(ref name, ref ty) in &f.argument_list {
+            write!(o, "({}: {}) ", name, ty)?;
+        }
+    } else {
+        write!(o, "() ")?;
     }
     write!(o, "= ")?;
     translate_expression(&f.body, o)?;

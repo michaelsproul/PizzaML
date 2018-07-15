@@ -84,6 +84,9 @@ pub fn expr_fn<I>(input: I, lang_env: &LanguageEnv<I>) -> ParseResult<Expr, I>
             Expr::Block(stmts, opt_expr.map(Box::new))
         });
 
+    // TODO: more literals
+    let string_literal = lang_env.string_literal().map(StringLit);
+
     // Simple terms and operators: var_name, x + y * z, etc
     // FIXME: precedence for other operators
     let op_parser = string("+").or(string("*"))
@@ -120,6 +123,7 @@ pub fn expr_fn<I>(input: I, lang_env: &LanguageEnv<I>) -> ParseResult<Expr, I>
         // Feels like a hack, could probably do something better.
         .or(try(fn_call))
         .or(prim_expr)
+        .or(string_literal)
         .parse_stream(input)
 }
 

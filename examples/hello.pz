@@ -1,0 +1,4 @@
+fn main() {
+    print("Hello world!\n");
+    print("We can print ;)\n");
+}
