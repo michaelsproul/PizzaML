@@ -5,14 +5,14 @@ This is a very silly project to make Standard ML more appealing to various group
 
 * Systems programmers
 * Rust programmers
-* People born after 1972
+* People born after 1973
 
 At the moment this repository contains the skeleton of a transpiler from PizzaML's Rust-like
 syntax to something vaguely resembling Standard ML.
 
 Given this input file in PizzaML:
 
-```rs
+```rust
 // examples/hello.pz
 fn main() {
     print("Hello world!\n");
