@@ -1,8 +1,8 @@
-use std::fmt::{self, Write};
+use std::io::{self, Write};
 use ast::*;
 use ast::{Expr::*, Statement::*};
 
-pub fn translate_expression<W: Write>(e: &Expr, o: &mut W) -> fmt::Result {
+pub fn translate_expression<W: Write>(e: &Expr, o: &mut W) -> io::Result<()> {
     match *e {
         Id(ref ident) => write!(o, "{}", ident)?,
         Op(ref lhs, op, ref rhs) => {
@@ -41,13 +41,14 @@ pub fn translate_expression<W: Write>(e: &Expr, o: &mut W) -> fmt::Result {
     Ok(())
 }
 
-pub fn translate_expression_to_str(e: &Expr) -> Result<String, fmt::Error> {
-    let mut result = String::new();
-    translate_expression(e, &mut result)?;
+pub fn translate_expression_to_str(e: &Expr) -> Result<String, io::Error> {
+    let mut buffer = Vec::new();
+    translate_expression(e, &mut buffer)?;
+    let result = String::from_utf8(buffer).expect("translated ML should be valid utf-8");
     Ok(result)
 }
 
-pub fn translate_statement<W: Write>(s: &Statement, o: &mut W) -> fmt::Result {
+pub fn translate_statement<W: Write>(s: &Statement, o: &mut W) -> io::Result<()> {
     match *s {
         SLet(ref ident, ref body) => {
             write!(o, "val {} = (", ident)?;
@@ -64,7 +65,7 @@ pub fn translate_statement<W: Write>(s: &Statement, o: &mut W) -> fmt::Result {
 }
 
 // TODO: polymorphic types
-pub fn translate_function<W: Write>(f: &Function, o: &mut W) -> fmt::Result {
+pub fn translate_function<W: Write>(f: &Function, o: &mut W) -> io::Result<()> {
     write!(o, "fun {} ", f.name)?;
     for &(ref name, ref ty) in &f.argument_list {
         write!(o, "({}: {}) ", name, ty)?;
@@ -75,11 +76,17 @@ pub fn translate_function<W: Write>(f: &Function, o: &mut W) -> fmt::Result {
     Ok(())
 }
 
+pub fn translate_function_to_str(f: &Function) -> Result<String, io::Error> {
+    let mut buffer = Vec::new();
+    translate_function(f, &mut buffer)?;
+    let result = String::from_utf8(buffer).expect("translated ML should be valid utf-8");
+    Ok(result)
+}
+
 #[cfg(test)]
 mod test {
-    use combine::Parser;
     use super::*;
-    use ast::Expr::*;
+    use combine::Parser;
     use parser::*;
 
     #[test]
@@ -109,8 +116,7 @@ end
                 args: vec![Unit, Unit, Unit]
             },
         };
-        let mut ml_func = String::new();
-        translate_function(&f, &mut ml_func).unwrap();
+        let ml_func = translate_function_to_str(&f).unwrap();
 
         assert_eq!(&ml_func, "fun foo (x: Int) = bar () () ();");
     }

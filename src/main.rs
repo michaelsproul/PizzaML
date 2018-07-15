@@ -1,71 +1,25 @@
 extern crate pizza_ml;
 extern crate combine;
-extern crate combine_language;
 
-use combine::{Parser, State};
-use pizza_ml::parser::{expr, function};
+use std::io::Read;
+use std::fs::File;
+use std::env;
 
+use combine::State;
+use pizza_ml::compiler::parse_and_translate;
+
+// FIXME: remove unwraps
 fn main() {
-    let mut expr = expr();
-    let mut func = function();
+    let args: Vec<_> = env::args().collect();
+    let src_file_name = &args[1];
 
-    println!("Testing the expression parser:");
-    println!("{:#?}", expr.parse(State::new("{{ hello_world + this_is_cool * wowza; x }; { x; y }}")));
+    let mut src_file = File::open(src_file_name).unwrap();
 
-    println!("Testing the function parser (#1):");
-    let example = "fn test_function ( arg1 : Type1 , arg2: Type2 ) { arg1 + arg2 * arg2; arg2 }";
-    match func.parse(State::new(example)) {
-        Ok(res) => println!("{:#?}", res),
-        Err(err) => println!("{}", err),
-    }
+    // FIXME: use streaming
+    let mut src = String::new();
+    src_file.read_to_string(&mut src).unwrap();
 
-    println!("Testing the function parser (#2):");
-    let example =
-r##"fn test_function(x: Int, y: Int) {
-        let z1 = x + y * x;
-        let z2 = z1 * z1;
-        z2;
-        z1 + z2
-    }
-"##;
+    let mut output_file = File::create("output.sml").unwrap();
 
-    match func.parse(State::new(example)) {
-        Ok(res) => println!("{:#?}", res),
-        Err(err) => println!("{}", err),
-    }
-
-    println!("Testing the expr parser (#3):");
-    let example = "foo(bar)";
-    println!("{:#?}", expr.parse(State::new(example)));
-
-    println!("Testing the function parser (#4):");
-    let example =
-r##"fn test_function(x: Int, y: Int) {
-        let z1 = x + y * x;
-        let z2 = some_other_function(x, y, z);
-        z2;
-        z1 + z2
-    }
-"##;
-
-    match func.parse(State::new(example)) {
-        Ok(res) => println!("{:#?}", res),
-        Err(err) => println!("{}", err),
-    }
-
-    // This should error because the terminal expression is a let
-    println!("Testing the function parser (#5):");
-    let example =
-r##"fn test_function(x: Int, y: Int) {
-        let z1 = x + y * x;
-        let z2 = z1 * z1;
-        z2;
-        let y = z1 + z2
-    }
-"##;
-
-    match func.parse(State::new(example)) {
-        Ok(res) => println!("{:#?}", res),
-        Err(err) => println!("{}", err),
-    }
+    parse_and_translate(State::new(&src[..]), &mut output_file).unwrap();
 }
