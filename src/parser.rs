@@ -30,7 +30,7 @@ pub fn language_env<'a, I: 'a>() -> LanguageEnv<'a, I>
 }
 
 /// Construct a parse error from a string
-fn str_error<T, E>(s: &'static str) -> Error<T, E> {
+pub fn str_error<T, E>(s: &'static str) -> Error<T, E> {
     Error::Message(s.into())
 }
 

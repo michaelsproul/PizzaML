@@ -16,6 +16,15 @@ pub fn parse_and_translate<I, W>(source_code: I, output: &mut W) -> Result<(), P
             translate_function(&func, output).map_err(Error::from)
         })
         .parse(source_code)
-        // FIXME: check there's nothing left in the stream
-        .map(|_| ())
+        // Check that all input was consumed
+        .and_then(|(_, mut stream)| {
+            if stream.uncons().is_err() {
+                Ok(())
+            } else {
+                Err(ParseError::new(
+                    stream.position(),
+                    parser::str_error("Failed to parse all input"),
+                ))
+            }
+        })
 }
