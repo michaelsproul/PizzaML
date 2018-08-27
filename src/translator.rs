@@ -28,6 +28,8 @@ pub fn translate_expression<W: Write>(e: &Expr, o: &mut W) -> io::Result<()> {
         Unit => write!(o, "()")?,
         // FIXME: HACK printing the debug representation of the string!
         StringLit(ref s) => write!(o, "{:?}", s)?,
+        IntLit(ref x) => write!(o, "{}", x)?,
+        BoolLit(x) => write!(o, "{}", x)?,
         Block(ref stmts, ref terminal) => {
             if !stmts.is_empty() {
                 write!(o, "let\n")?;
@@ -46,7 +48,14 @@ pub fn translate_expression<W: Write>(e: &Expr, o: &mut W) -> io::Result<()> {
                 write!(o, "\nend")?;
             }
         }
-        If(..) => unimplemented!(),
+        If(ref cond, ref e1, ref e2) => {
+            write!(o, "if ")?;
+            translate_expression(cond, o)?;
+            write!(o, "\nthen\n")?;
+            translate_expression(e1, o)?;
+            write!(o, "\nelse\n")?;
+            translate_expression(e2, o)?;
+        }
     }
     Ok(())
 }

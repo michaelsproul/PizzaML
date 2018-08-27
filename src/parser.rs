@@ -6,7 +6,7 @@ use combine::primitives::Error;
 use ast::*;
 use ast::{Expr::*, Statement::*};
 
-const KEYWORDS: &[&str] = &["if", "then", "else", "fn", "let"];
+const KEYWORDS: &[&str] = &["if", "then", "else", "fn", "let", "true", "false"];
 
 /// Language environment: provides lexing, comment support and easy expr parsing
 pub fn language_env<'a, I: 'a>() -> LanguageEnv<'a, I>
@@ -21,7 +21,7 @@ pub fn language_env<'a, I: 'a>() -> LanguageEnv<'a, I>
         op: Identifier {
             start: satisfy(|c| "+-*/=".chars().any(|x| x == c)),
             rest: satisfy(|c| "+-*/=".chars().any(|x| x == c)),
-            reserved: ["+", "-", "*", "/", "="].iter().map(|x| (*x).into()).collect()
+            reserved: ["+", "-", "*", "/", "=", "<", ">"].iter().map(|x| (*x).into()).collect()
         },
         comment_start: string("/*").map(|_| ()),
         comment_end: string("*/").map(|_| ()),
@@ -87,6 +87,13 @@ pub fn expr_fn<I>(input: I, lang_env: &LanguageEnv<I>) -> ParseResult<Expr, I>
     // TODO: more literals
     let string_literal = lang_env.string_literal().map(StringLit);
 
+    let int_literal = lang_env.integer().map(IntLit);
+
+    let bool_literal =
+        lang_env.reserved("true").map(|_| BoolLit(true)).or(
+            lang_env.reserved("false").map(|_| BoolLit(false))
+        );
+
     // Simple terms and operators: var_name, x + y * z, etc
     // FIXME: precedence for other operators
     let op_parser = string("+").or(string("*"))
@@ -100,13 +107,6 @@ pub fn expr_fn<I>(input: I, lang_env: &LanguageEnv<I>) -> ParseResult<Expr, I>
         })
         .skip(spaces());
 
-    let term = lang_env
-        .identifier()
-        .map(Id)
-        .skip(spaces());
-
-    let prim_expr = expression_parser(term, op_parser, op);
-
     // Function calls
     let fn_call = (
         lang_env.identifier(),
@@ -118,13 +118,39 @@ pub fn expr_fn<I>(input: I, lang_env: &LanguageEnv<I>) -> ParseResult<Expr, I>
         }
     });
 
-    expr_block
+    // If expressions
+    // FIXME: statement if (else-less)
+    let if_expr = (
+        lang_env.reserved("if"),
+        expr().skip(look_ahead(lex_char('{'))),
+        expr(),
+        lang_env.reserved("else").skip(look_ahead(lex_char('{'))),
+        expr(),
+    ).and_then(|(_, cond, e1, _, e2)| {
+        match (&e1, &e2) {
+            (Block(..), Block(..)) => {
+                Ok(If(Box::new(cond), Box::new(e1), Box::new(e2)))
+            }
+            _ => {
+                Err(str_error("Expected braces around if expression body: if .. { .. } else { .. }"))
+            }
+        }
+    });
+
+    let ident = lang_env.identifier().map(Id);
+
+    // FIXME: I have a cold and I'm not sure if this precedence magic is right
+    let term = expr_block
         // FIXME: `try` required to avoid confusing `ident` with `ident(args..)`
         // Feels like a hack, could probably do something better.
         .or(try(fn_call))
-        .or(prim_expr)
+        .or(if_expr)
+        .or(bool_literal)
+        .or(ident)
         .or(string_literal)
-        .parse_stream(input)
+        .or(int_literal);
+
+    expression_parser(term, op_parser, op).parse_stream(input)
 }
 
 /// Expression parser
@@ -163,4 +189,14 @@ pub fn function_fn<I>(input: I, env: &LanguageEnv<I>) -> ParseResult<Function, I
 /// Function parser
 pub fn function<'a, I: Stream<Item=char> + 'a>() -> impl Parser<Input=I, Output=Function> {
     parser(|inp| function_fn(inp, &language_env()))
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn bool_lit() {
+        assert_eq!(expr().parse_stream("true").unwrap().0, BoolLit(true));
+    }
 }

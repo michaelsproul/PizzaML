@@ -21,6 +21,8 @@ pub enum Expr {
     // ()
     Unit,
     StringLit(String),
+    IntLit(i64),
+    BoolLit(bool),
 }
 
 #[derive(PartialEq, Debug)]

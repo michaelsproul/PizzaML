@@ -1,0 +1,13 @@
+fn main() {
+    if true {
+        let y = {
+            let z = 5 + 5;
+            let x = 7;
+            x + z
+        };
+        print("Hello world!\n");
+        print("We can print ;)\n");
+    } else {
+        print("What the heck?\n");
+    }
+}
