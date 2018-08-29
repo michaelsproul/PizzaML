@@ -10,12 +10,22 @@ pub fn translate_function_call(func_name: &str) -> &str {
     }
 }
 
+// Convert a PizzaML operator into an SML one.
+fn translate_op(operator: &str) -> &str {
+    match operator {
+        "==" => "=",
+        "||" => "orelse",
+        "&&" => "andalso",
+        op => op
+    }
+}
+
 pub fn translate_expression<W: Write>(e: &Expr, o: &mut W) -> io::Result<()> {
     match *e {
         Id(ref ident) => write!(o, "{}", ident)?,
         Op(ref lhs, op, ref rhs) => {
             translate_expression(lhs, o)?;
-            write!(o, "{}", op)?;
+            write!(o, " {} ", translate_op(op))?;
             translate_expression(rhs, o)?;
         }
         FnCall { ref function, ref args } => {

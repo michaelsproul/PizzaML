@@ -8,6 +8,15 @@ use ast::{Expr::*, Statement::*};
 
 const KEYWORDS: &[&str] = &["if", "then", "else", "fn", "let", "true", "false"];
 
+const OPERATORS: &[&str] = &[
+    "+", "-", "*", "/",
+    "==",
+    "||", "&&",
+    "<", ">", "<=", ">="
+];
+
+const OPERATOR_CHARS: &str = "+-*/=|*<>";
+
 /// Language environment: provides lexing, comment support and easy expr parsing
 pub fn language_env<'a, I: 'a>() -> LanguageEnv<'a, I>
     where I: Stream<Item = char>
@@ -19,9 +28,9 @@ pub fn language_env<'a, I: 'a>() -> LanguageEnv<'a, I>
             reserved: KEYWORDS.iter().map(|x| (*x).into()).collect(),
         },
         op: Identifier {
-            start: satisfy(|c| "+-*/=".chars().any(|x| x == c)),
-            rest: satisfy(|c| "+-*/=".chars().any(|x| x == c)),
-            reserved: ["+", "-", "*", "/", "=", "<", ">"].iter().map(|x| (*x).into()).collect()
+            start: satisfy(|c| OPERATOR_CHARS.chars().any(|x| x == c)),
+            rest: satisfy(|c| OPERATOR_CHARS.chars().any(|x| x == c)),
+            reserved: OPERATORS.iter().map(|x| (*x).into()).collect()
         },
         comment_start: string("/*").map(|_| ()),
         comment_end: string("*/").map(|_| ()),
@@ -62,6 +71,17 @@ fn op(l: Expr, o: &'static str, r: Expr) -> Expr {
     Op(Box::new(l), o, Box::new(r))
 }
 
+fn op_precedence(op: &str) -> i32 {
+    match op {
+        "||" => 1,
+        "&&" => 2,
+        "==" | "<" | ">" | "<=" | ">=" => 3,
+        "+" | "-" => 4,
+        "*" | "/" => 5,
+        _ => unreachable!("missing precedence for: {}", op)
+    }
+}
+
 /// Expression parser
 pub fn expr_fn<I>(input: I, lang_env: &LanguageEnv<I>) -> ParseResult<Expr, I>
     where I: Stream<Item=char>
@@ -94,16 +114,16 @@ pub fn expr_fn<I>(input: I, lang_env: &LanguageEnv<I>) -> ParseResult<Expr, I>
             lang_env.reserved("false").map(|_| BoolLit(false))
         );
 
-    // Simple terms and operators: var_name, x + y * z, etc
-    // FIXME: precedence for other operators
-    let op_parser = string("+").or(string("*"))
+    // Operators
+    let op_parsers: Vec<_> = OPERATORS.iter().map(|op| string(*op)).collect();
+
+    let op_parser = choice(op_parsers)
         .map(|op| {
-            let prec = match op {
-                "+" => 6,
-                "*" => 7,
-                _ => unreachable!()
+            let assoc = Assoc {
+                precedence: op_precedence(op),
+                fixity: Fixity::Left,
             };
-            (op, Assoc { precedence: prec, fixity: Fixity::Left })
+            (op, assoc)
         })
         .skip(spaces());
 

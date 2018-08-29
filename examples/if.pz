@@ -1,5 +1,5 @@
 fn main() {
-    if true {
+    if 5 + 5 == 11 || 12 == 2 * 6 {
         let y = {
             let z = 5 + 5;
             let x = 7;
